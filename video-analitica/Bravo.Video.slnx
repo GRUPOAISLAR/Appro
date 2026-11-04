@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Bravo.Video.Contratos/Bravo.Video.Contratos.csproj" />
+    <Project Path="src/Bravo.Video.Patentes/Bravo.Video.Patentes.csproj" />
+    <Project Path="src/Bravo.Video.Lectores/Bravo.Video.Lectores.csproj" />
+    <Project Path="src/Bravo.Video.Estadias/Bravo.Video.Estadias.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Bravo.Video.Tests/Bravo.Video.Tests.csproj" />
+  </Folder>
+</Solution>

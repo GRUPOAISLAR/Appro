@@ -1,0 +1,11 @@
+bin/
+obj/
+*.user
+.vs/
+# Capturas y exportes reales: nunca al repo.
+capturas/
+*.mp4
+*.jpg
+*.png
+!docs/**/*.png
+.env

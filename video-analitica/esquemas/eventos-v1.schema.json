@@ -1,0 +1,105 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bravo.local/video/eventos-v1.schema.json",
+  "title": "Evento de análisis de video v1",
+  "description": "Lo que el conector del local envía a la ingesta. Nunca incluye imágenes. Fuente de verdad en C#: Bravo.Video.Contratos; este esquema tiene que coincidir (lo verifica una prueba).",
+  "type": "object",
+  "required": ["eventId", "schemaVersion", "tipo", "sede", "dispositivo", "ts", "fuente"],
+  "properties": {
+    "eventId": { "type": "string", "format": "uuid" },
+    "schemaVersion": { "const": "1" },
+    "tipo": {
+      "enum": ["VEHICULO_INGRESO", "VEHICULO_EGRESO", "PERSONAS_CRUCE", "BOX_OCUPADO", "BOX_LIBRE", "DISPOSITIVO_LATIDO"]
+    },
+    "sede": { "$ref": "#/$defs/texto" },
+    "dispositivo": { "$ref": "#/$defs/texto" },
+    "camara": { "$ref": "#/$defs/texto" },
+    "ts": { "$ref": "#/$defs/fechaConZona" },
+    "fuente": {
+      "type": "object",
+      "required": ["motor", "version"],
+      "properties": {
+        "motor": { "$ref": "#/$defs/texto" },
+        "version": { "$ref": "#/$defs/texto" }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "tipo": { "enum": ["VEHICULO_INGRESO", "VEHICULO_EGRESO"] } } },
+      "then": {
+        "required": ["camara"],
+        "properties": {
+          "patente": { "$ref": "#/$defs/lecturaPatente" },
+          "idOrigen": { "type": "string" }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "tipo": { "const": "PERSONAS_CRUCE" } } },
+      "then": {
+        "required": ["camara", "linea", "entradas", "salidas"],
+        "properties": {
+          "linea": { "$ref": "#/$defs/texto" },
+          "entradas": { "type": "integer", "minimum": 0 },
+          "salidas": { "type": "integer", "minimum": 0 },
+          "desde": { "$ref": "#/$defs/fechaConZona" },
+          "hasta": { "$ref": "#/$defs/fechaConZona" }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "tipo": { "enum": ["BOX_OCUPADO", "BOX_LIBRE"] } } },
+      "then": {
+        "required": ["camara", "box"],
+        "properties": {
+          "box": { "$ref": "#/$defs/texto" },
+          "idOrigen": { "type": "string" }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "tipo": { "const": "DISPOSITIVO_LATIDO" } } },
+      "then": {
+        "required": ["versionConector", "motores", "colaPendiente"],
+        "properties": {
+          "versionConector": { "$ref": "#/$defs/texto" },
+          "motores": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["nombre", "estado"],
+              "properties": {
+                "nombre": { "type": "string" },
+                "estado": { "enum": ["en_linea", "fuera_de_linea", "desconocido"] }
+              }
+            }
+          },
+          "colaPendiente": { "type": "integer", "minimum": 0 },
+          "desvioRelojMs": { "type": "integer" }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "texto": { "type": "string", "minLength": 1, "maxLength": 64 },
+    "fechaConZona": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "(Z|z|[+-]\\d{2}:\\d{2})$"
+    },
+    "lecturaPatente": {
+      "type": "object",
+      "required": ["leida", "pais", "valida"],
+      "properties": {
+        "leida": { "type": "string", "minLength": 1, "maxLength": 16 },
+        "normalizada": { "type": "string" },
+        "pais": { "enum": ["AR", "MX"] },
+        "formato": { "type": "string" },
+        "valida": { "type": "boolean" },
+        "correcciones": { "type": "integer", "minimum": 0 },
+        "confianza": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    }
+  }
+}
