@@ -36,7 +36,7 @@ Código en `src/`, pruebas en `tests/` (77 pruebas, todas con datos inventados).
 
 **Pendiente de validar con equipos reales:** los formatos de Frigate, Hikvision y Milesight se tomaron de su documentación pública, no de una captura. Antes de la prueba hay que comparar contra un mensaje real de cada uno (ver `preparativos.md`).
 
-## Etapa 2 — Ingesta en el servidor · SIGUIENTE
+## Etapa 2 — Ingesta en el servidor · HECHA
 
 - API en ASP.NET Core 10: `POST /api/v1/eventos` por lotes de hasta 500.
 - Token por equipo, guardado como hash; los tokens se generan con un comando y se pasan por variable de entorno.
@@ -47,7 +47,16 @@ Código en `src/`, pruebas en `tests/` (77 pruebas, todas con datos inventados).
 
 **Queda listo:** servidor que recibe y guarda eventos, con migraciones de base.
 
-## Etapa 3 — Conector del local
+Hecho en `src/Bravo.Video.Ingesta` (EF Core 10.0.14, migración `Inicial` para SQL Server; SQLite crea las tablas desde el modelo). 12 pruebas de integración más una prueba manual con curl contra el servidor real.
+
+- La respuesta del lote lista los rechazados con índice y motivo. Un evento malo no frena al resto del lote.
+- Se guarda en columnas, sin el JSON original, para que anonimizar sea un UPDATE verificable.
+- El hash de la patente se calcula al recibir el evento. Después de anonimizar queda solo el hash, y las estadías se siguen pudiendo emparejar.
+- El plazo de retención **no tiene valor por defecto**. Sin `VIDEO_RETENCION_PATENTE_DIAS` el servidor no arranca: lo tiene que definir el Owner.
+- Se fijó `System.Security.Cryptography.Pkcs` en 10.0.14 porque `Microsoft.Data.SqlClient` 6.1.7 trae la 9.0.11, que tiene vulnerabilidades conocidas.
+
+## Etapa 3 — Conector del local · SIGUIENTE
+
 
 - Servicio .NET 10 que corre en el mini PC del local.
 - Adaptadores:
@@ -103,6 +112,7 @@ Código en `src/`, pruebas en `tests/` (77 pruebas, todas con datos inventados).
 | Etapa | Bloqueo | Quién lo destraba |
 | --- | --- | --- |
 | 1 | Ninguno (hecha) | — |
-| 2 a 7 | Ninguno (NuGet ya habilitado) | — |
+| 2 | Ninguno (hecha) | — |
+| 3 a 7 | Ninguno | — |
 | 8 | Repo definitivo de GitHub (hoy vive en `GRUPOAISLAR/Appro`) | Gastón (crear repo y pasarme el nombre) |
 | 9 | Aprobación de Python, legal, hardware, servidor | Owner, empresa e infraestructura |

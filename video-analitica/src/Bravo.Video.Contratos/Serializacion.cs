@@ -52,12 +52,12 @@ public sealed class ConvertidorFechaConZona : JsonConverter<DateTimeOffset>
     {
         if (!TieneZona(texto))
         {
-            throw new JsonException("La fecha no tiene zona horaria explícita (falta 'Z' o '±hh:mm').");
+            throw new FechaInvalidaException("Una fecha no tiene zona horaria explícita (falta 'Z' o '±hh:mm').");
         }
 
         if (!DateTimeOffset.TryParse(texto, CultureInfo.InvariantCulture, DateTimeStyles.None, out var fecha))
         {
-            throw new JsonException("Fecha con formato inválido.");
+            throw new FechaInvalidaException("Una fecha tiene formato inválido.");
         }
 
         return fecha;
@@ -109,3 +109,9 @@ public sealed class ConvertidorFechaConZonaOpcional : JsonConverter<DateTimeOffs
         writer.WriteStringValue(value.Value.ToString("yyyy-MM-ddTHH:mm:ss.fffzzz", CultureInfo.InvariantCulture));
     }
 }
+
+/// <summary>
+/// Fecha rechazada por el contrato. Su mensaje es texto fijo, nunca cita el valor
+/// recibido, así que la ingesta puede devolverlo tal cual al conector.
+/// </summary>
+public sealed class FechaInvalidaException(string mensaje) : JsonException(mensaje);

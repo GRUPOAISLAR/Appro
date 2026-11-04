@@ -57,7 +57,7 @@ public class ContratosPruebas
         {"tipo":"BOX_LIBRE","eventId":"0b8e4c1e-7a10-8f00-8000-000000000001","sede":"S","dispositivo":"D",
          "camara":"C","ts":"{{ts}}","fuente":{"motor":"m","version":"1"},"box":"b"}
         """;
-        Assert.Throws<JsonException>(() => JsonSerializer.Deserialize<EventoVideo>(json, OpcionesJson.Eventos));
+        Assert.Throws<FechaInvalidaException>(() => JsonSerializer.Deserialize<EventoVideo>(json, OpcionesJson.Eventos));
     }
 
     [Fact]

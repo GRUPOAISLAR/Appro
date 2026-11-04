@@ -17,12 +17,34 @@ Lectura de patentes y conteo en ingreso, egreso y estacionamiento. Primero va la
 | `Bravo.Video.Patentes` | Normalización y validación AR/MX, hash de patentes | ninguna |
 | `Bravo.Video.Lectores` | Mensajes de Frigate, cámara Hikvision ANPR y sensor Milesight → eventos | Contratos, Patentes |
 | `Bravo.Video.Estadias` | Emparejar ingreso con egreso, promedio y mediana | Contratos |
+| `Bravo.Video.Ingesta` | API `POST /api/v1/eventos`, base, tokens, anonimización | EF Core 10.0.14 (SQL Server / SQLite) |
 
-.NET 10 (SDK 10.0.114). Las librerías no usan paquetes externos. Las pruebas usan xUnit 2.9.3.
+.NET 10 (SDK 10.0.114). Las librerías de `Contratos` a `Estadias` no usan paquetes externos. Las pruebas usan xUnit 2.9.3.
 
 ```
 dotnet test Bravo.Video.slnx
 ```
+
+## Ingesta: cómo se corre
+
+Toda la configuración va por variables de entorno del servidor, nunca en el repo:
+
+| Variable | Qué es |
+| --- | --- |
+| `VIDEO_DB_PROVEEDOR` | `SqlServer` (prueba en la empresa) o `Sqlite` (solo notebook) |
+| `VIDEO_DB_CONEXION` | Cadena de conexión a la base `VideoAnalitica` |
+| `VIDEO_CLAVE_HASH_PATENTE` | Clave del hash de patentes en base64, de al menos 32 bytes. Si se cambia, se corta la continuidad de las estadías. |
+| `VIDEO_RETENCION_PATENTE_DIAS` | Días que se guarda la patente en texto. Sin valor por defecto: lo define el Owner. |
+| `VIDEO_ANONIMIZACION_INTERVALO_MINUTOS` | Opcional, 60 por defecto |
+
+```
+dotnet Bravo.Video.Ingesta.dll migrar
+dotnet Bravo.Video.Ingesta.dll equipo-alta --dispositivo minipc-01 --sede AR-PRUEBA-01   # muestra el token una vez
+dotnet Bravo.Video.Ingesta.dll                                                          # levanta la API
+```
+
+Las migraciones se generan con la herramienta local: `dotnet tool restore` y después
+`dotnet ef migrations add <Nombre> --project src/Bravo.Video.Ingesta --output-dir Datos/Migraciones`.
 
 ## Reglas que no hay que romper
 

@@ -4,8 +4,10 @@
     <Project Path="src/Bravo.Video.Patentes/Bravo.Video.Patentes.csproj" />
     <Project Path="src/Bravo.Video.Lectores/Bravo.Video.Lectores.csproj" />
     <Project Path="src/Bravo.Video.Estadias/Bravo.Video.Estadias.csproj" />
+    <Project Path="src/Bravo.Video.Ingesta/Bravo.Video.Ingesta.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Bravo.Video.Tests/Bravo.Video.Tests.csproj" />
+    <Project Path="tests/Bravo.Video.Ingesta.Tests/Bravo.Video.Ingesta.Tests.csproj" />
   </Folder>
 </Solution>
