@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>bravo-video</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="MQTTnet" Version="5.2.0.1603" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Bravo.Video.Simulacion\Bravo.Video.Simulacion.csproj" />
+    <ProjectReference Include="..\Bravo.Video.Evaluacion\Bravo.Video.Evaluacion.csproj" />
+  </ItemGroup>
+</Project>

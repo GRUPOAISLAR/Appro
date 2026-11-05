@@ -19,6 +19,9 @@ Lectura de patentes y conteo en ingreso, egreso y estacionamiento. Primero va la
 | `Bravo.Video.Estadias` | Emparejar ingreso con egreso, promedio y mediana | Contratos |
 | `Bravo.Video.Ingesta` | API `POST /api/v1/eventos`, base, tokens, anonimización | EF Core 10.0.14 (SQL Server / SQLite) |
 | `Bravo.Video.Conector` | Servicio del mini PC: Frigate por MQTT, ANPR y sensor por HTTP, cola en disco, latido | MQTTnet 5.2.0.1603 |
+| `Bravo.Video.Simulacion` | Autos simulados con patentes inventadas y fallas de lectura; mensajes de Frigate y ANPR | Lectores, Evaluacion |
+| `Bravo.Video.Evaluacion` | Planillas CSV y evaluador (% de lectura con IC 95%, conteo, confusiones) | Contratos, Patentes |
+| `Bravo.Video.Herramientas` | Línea de comandos `bravo-video simular` / `bravo-video evaluar` | MQTTnet 5.2.0.1603 |
 
 .NET 10 (SDK 10.0.114). Las librerías de `Contratos` a `Estadias` no usan paquetes externos. Las pruebas usan xUnit 2.9.3.
 
@@ -59,6 +62,17 @@ En el mini PC del local. La instalación se describe en `conector.json` (ver `co
 | `ASPNETCORE_URLS` | Dónde escucha a las cámaras y sensores (ej. `http://0.0.0.0:8080`) |
 
 Endpoints: `POST /anpr/{camara}` (cámara ANPR), `POST /conteo/{sensor}` (sensor de conteo), `GET /salud` (cola pendiente, cuarentena, MQTT, desvío del reloj).
+
+## Simulador y evaluador
+
+```
+bravo-video simular --modo seco --autos 200 --salida ./sim           # sin red: etiquetas.csv + lecturas.csv
+bravo-video simular --modo mqtt --mqtt-host 127.0.0.1 --salida ./sim # como Frigate, contra el conector real
+bravo-video simular --modo http --conector http://127.0.0.1:8080     # como la cámara ANPR
+bravo-video evaluar --etiquetas etiquetas.csv --lecturas lecturas.csv --informe informe.md
+```
+
+`scripts/prueba-punta-a-punta.sh` levanta Mosquitto, la ingesta y el conector en 127.0.0.1, simula dos tandas con un corte de la ingesta entre ellas, y verifica que llegue todo, sin duplicados ni patentes en los logs.
 
 ## Reglas que no hay que romper
 

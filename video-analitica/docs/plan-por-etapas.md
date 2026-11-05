@@ -77,16 +77,28 @@ Hecho en `src/Bravo.Video.Conector` (MQTTnet 5.2.0.1603). Ejemplo de configuraci
 - **MQTT con sesión limpia:** si el conector estuvo caído, los mensajes de ese rato no se reciben; quedan en la grabación de Frigate. Decisión a revisar si la prueba muestra cortes frecuentes.
 - **Equipos que solo mandan con tránsito (ANPR, sensor):** el latido los informa como `desconocido`, y no como caídos, si no mandaron nada en la última hora. De noche el silencio es normal.
 
-## Etapa 4 — Tablero · SIGUIENTE
+## Etapa 4 — Tablero · ESPERA DECISIÓN (ver PR #1)
 
 
 - Página web servida por la ingesta: ingresos y egresos por hora, estadías (promedio y mediana), vehículos sin pareja, conteo de personas y estado de cada equipo.
 - Exportación CSV de lecturas para etiquetar la muestra a mano.
 
-## Etapa 5 — Herramientas de prueba
+**Decisión pendiente del Owner, pedida en el PR #1:** el tablero se propone solo con números, sin patentes. La exportación necesita las patentes en texto y no se construye hasta que Matías la apruebe por escrito.
+
+## Etapa 5 — Herramientas de prueba · HECHA
 
 - **Simulador:** genera autos con patentes inventadas que entran, estacionan y salen. Publica en el MQTT como lo haría Frigate y llama al conector como lo haría la cámara ANPR. Permite probar todo sin cámaras.
 - **Evaluador:** cruza las lecturas con la muestra etiquetada y calcula % de patentes bien leídas (día y noche por separado), errores más comunes y error de conteo.
+
+Hecho en `src/Bravo.Video.Simulacion`, `src/Bravo.Video.Evaluacion` y la línea de comandos `bravo-video` (`src/Bravo.Video.Herramientas`). 21 pruebas. Script de punta a punta en `scripts/prueba-punta-a-punta.sh`: simulador → Mosquitto 2.0.18 → conector → ingesta, con corte de la ingesta en el medio. Última corrida: 390 de 390 eventos entregados, sin duplicados ni patentes en los logs, en 31 s.
+
+- **Patentes inventadas con prefijo Z** (AR: `ZV`…`ZZ`). En Argentina esa serie no se va a emitir en décadas.
+- **Ruido configurable por período:** sin detección, sin lectura, error corregible por parecido y error no corregible. Con los valores por defecto da alrededor de 92% de día y 79% de noche, solo para probar el evaluador. **No es una predicción del motor real.**
+- **El porcentaje principal usa como base todas las pasadas con patente legible**, aunque el motor no las haya detectado. Por separado se informa el porcentaje sobre las detectadas.
+- **Intervalo de confianza de Wilson al 95%.** El veredicto contra el 95% puede ser "cumple", "no cumple" o "no se puede afirmar con esta muestra".
+- **El evaluador recalcula la normalización desde el texto leído,** así mide el normalizador vigente.
+- **El informe no lleva patentes,** solo cantidades y confusiones de carácter.
+- **Formatos de planilla:** `etiquetas.csv` (`eventId,ts,patenteReal,periodo`, con `?` para ilegible y `-` para "no había vehículo") y `lecturas.csv`. Con datos reales son archivos privados.
 
 ## Etapa 6 — Instalación
 
@@ -122,6 +134,8 @@ Hecho en `src/Bravo.Video.Conector` (MQTTnet 5.2.0.1603). Ejemplo de configuraci
 | 1 | Ninguno (hecha) | — |
 | 2 | Ninguno (hecha) | — |
 | 3 | Ninguno (hecha) | — |
-| 4 a 7 | Ninguno | — |
+| 4 | Decisión del Owner sobre patentes en tablero y exportación | Matías (en el PR #1) |
+| 5 | Ninguno (hecha) | — |
+| 6 y 7 | Ninguno para el código; la instalación real espera la aprobación de Python | — |
 | 8 | Repo definitivo de GitHub (hoy vive en `GRUPOAISLAR/Appro`) | Gastón (crear repo y pasarme el nombre) |
 | 9 | Aprobación de Python, legal, hardware, servidor | Owner, empresa e infraestructura |
