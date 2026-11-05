@@ -1,0 +1,28 @@
+// Ejemplo de configuración del conector. Valores inventados: copiar a
+// conector.json en el mini PC y completar con los datos reales de la sede.
+// Los secretos NO van acá: VIDEO_CONECTOR_TOKEN, VIDEO_MQTT_USUARIO y
+// VIDEO_MQTT_CLAVE se pasan como variables de entorno.
+{
+  "sede": "AR-PRUEBA-01",
+  "dispositivo": "minipc-01",
+  "pais": "AR",
+  "zonaHoraria": "America/Argentina/Buenos_Aires",
+  "urlIngesta": "https://video-ingesta.ejemplo.invalid/",
+  "directorioCola": "/var/lib/bravo-video/cola",
+  "maximoCola": 200000,
+  // Minutos sin mensajes de una cámara ANPR o sensor para informarla como "desconocido".
+  "ventanaActividadMinutos": 60,
+  // Sacar este bloque si no se usa Frigate.
+  "mqtt": { "host": "mosquitto", "puerto": 1883, "versionFrigate": "0.17.1" },
+  "camaras": [
+    // Frigate: una cámara que ve ingreso y egreso, separados por zonas dibujadas en Frigate.
+    { "camara": "porton", "motor": "frigate", "rol": "PorZona", "zonaIngreso": "entrada", "zonaEgreso": "salida" },
+    // Cámara ANPR que envía por HTTP a http://<mini PC>:8080/anpr/anpr-ingreso
+    { "camara": "anpr-ingreso", "motor": "hikvision-anpr", "rol": "Ingreso", "ip": "192.0.2.20", "firmware": "V5.7.0" },
+    { "camara": "anpr-egreso", "motor": "hikvision-anpr", "rol": "Egreso", "ip": "192.0.2.21", "firmware": "V5.7.0" }
+  ],
+  // Sensor de conteo que envía a http://<mini PC>:8080/conteo/sensor-hall
+  "sensores": [
+    { "sensor": "sensor-hall", "ip": "192.0.2.30", "firmware": "1.0" }
+  ]
+}

@@ -55,7 +55,7 @@ Hecho en `src/Bravo.Video.Ingesta` (EF Core 10.0.14, migración `Inicial` para S
 - El plazo de retención **no tiene valor por defecto**. Sin `VIDEO_RETENCION_PATENTE_DIAS` el servidor no arranca: lo tiene que definir el Owner.
 - Se fijó `System.Security.Cryptography.Pkcs` en 10.0.14 porque `Microsoft.Data.SqlClient` 6.1.7 trae la 9.0.11, que tiene vulnerabilidades conocidas.
 
-## Etapa 3 — Conector del local · SIGUIENTE
+## Etapa 3 — Conector del local · HECHA
 
 
 - Servicio .NET 10 que corre en el mini PC del local.
@@ -70,7 +70,15 @@ Hecho en `src/Bravo.Video.Ingesta` (EF Core 10.0.14, migración `Inicial` para S
 
 **Queda listo:** conector configurable por archivo y variables de entorno.
 
-## Etapa 4 — Tablero
+Hecho en `src/Bravo.Video.Conector` (MQTTnet 5.2.0.1603). Ejemplo de configuración en `config/conector.ejemplo.json`. 19 pruebas, entre ellas una con un broker MQTT real en memoria y otra con la cámara mandando multipart con imagen. Prueba de punta a punta con los dos procesos reales: con la ingesta caída la lectura queda en cola; al levantarla se entrega en 5 s, sin duplicar y sin patentes en los logs.
+
+- **Cola:** un archivo por evento con escritura atómica, para inspeccionarla con `ls`. Si se llena, rechaza lo nuevo y lo cuenta; no pisa lo viejo. Un lote que la ingesta rechaza entero va a `cuarentena/` para no trabar la cola.
+- **Cámaras ANPR y sensores:** no pueden mandar token, así que se aceptan solo desde la IP configurada para cada uno. Las imágenes del multipart se leen y se descartan sin tocar el disco.
+- **MQTT con sesión limpia:** si el conector estuvo caído, los mensajes de ese rato no se reciben; quedan en la grabación de Frigate. Decisión a revisar si la prueba muestra cortes frecuentes.
+- **Equipos que solo mandan con tránsito (ANPR, sensor):** el latido los informa como `desconocido`, y no como caídos, si no mandaron nada en la última hora. De noche el silencio es normal.
+
+## Etapa 4 — Tablero · SIGUIENTE
+
 
 - Página web servida por la ingesta: ingresos y egresos por hora, estadías (promedio y mediana), vehículos sin pareja, conteo de personas y estado de cada equipo.
 - Exportación CSV de lecturas para etiquetar la muestra a mano.
@@ -113,6 +121,7 @@ Hecho en `src/Bravo.Video.Ingesta` (EF Core 10.0.14, migración `Inicial` para S
 | --- | --- | --- |
 | 1 | Ninguno (hecha) | — |
 | 2 | Ninguno (hecha) | — |
-| 3 a 7 | Ninguno | — |
+| 3 | Ninguno (hecha) | — |
+| 4 a 7 | Ninguno | — |
 | 8 | Repo definitivo de GitHub (hoy vive en `GRUPOAISLAR/Appro`) | Gastón (crear repo y pasarme el nombre) |
 | 9 | Aprobación de Python, legal, hardware, servidor | Owner, empresa e infraestructura |

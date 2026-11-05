@@ -18,6 +18,7 @@ Lectura de patentes y conteo en ingreso, egreso y estacionamiento. Primero va la
 | `Bravo.Video.Lectores` | Mensajes de Frigate, cámara Hikvision ANPR y sensor Milesight → eventos | Contratos, Patentes |
 | `Bravo.Video.Estadias` | Emparejar ingreso con egreso, promedio y mediana | Contratos |
 | `Bravo.Video.Ingesta` | API `POST /api/v1/eventos`, base, tokens, anonimización | EF Core 10.0.14 (SQL Server / SQLite) |
+| `Bravo.Video.Conector` | Servicio del mini PC: Frigate por MQTT, ANPR y sensor por HTTP, cola en disco, latido | MQTTnet 5.2.0.1603 |
 
 .NET 10 (SDK 10.0.114). Las librerías de `Contratos` a `Estadias` no usan paquetes externos. Las pruebas usan xUnit 2.9.3.
 
@@ -45,6 +46,19 @@ dotnet Bravo.Video.Ingesta.dll                                                  
 
 Las migraciones se generan con la herramienta local: `dotnet tool restore` y después
 `dotnet ef migrations add <Nombre> --project src/Bravo.Video.Ingesta --output-dir Datos/Migraciones`.
+
+## Conector: cómo se corre
+
+En el mini PC del local. La instalación se describe en `conector.json` (ver `config/conector.ejemplo.json`) y los secretos van por entorno:
+
+| Variable | Qué es |
+| --- | --- |
+| `VIDEO_CONECTOR_CONFIG` | Ruta de `conector.json` (por defecto, el directorio actual) |
+| `VIDEO_CONECTOR_TOKEN` | Token que dio `equipo-alta` en el servidor |
+| `VIDEO_MQTT_USUARIO` / `VIDEO_MQTT_CLAVE` | Solo si Mosquitto pide usuario |
+| `ASPNETCORE_URLS` | Dónde escucha a las cámaras y sensores (ej. `http://0.0.0.0:8080`) |
+
+Endpoints: `POST /anpr/{camara}` (cámara ANPR), `POST /conteo/{sensor}` (sensor de conteo), `GET /salud` (cola pendiente, cuarentena, MQTT, desvío del reloj).
 
 ## Reglas que no hay que romper
 
