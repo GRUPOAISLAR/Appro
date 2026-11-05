@@ -1,0 +1,16 @@
+# Ingesta del servidor. Se construye desde la raíz de video-analitica:
+#   docker build -f deploy/Dockerfile.ingesta -t bravo-video-ingesta .
+FROM mcr.microsoft.com/dotnet/sdk:10.0.403-noble AS compilacion
+WORKDIR /src
+COPY Directory.Build.props ./
+COPY src/ src/
+RUN dotnet publish src/Bravo.Video.Ingesta -c Release -o /app --nologo
+
+FROM mcr.microsoft.com/dotnet/aspnet:10.0.14-noble
+WORKDIR /app
+COPY --from=compilacion /app ./
+USER $APP_UID
+ENV ASPNETCORE_URLS=http://0.0.0.0:8080
+EXPOSE 8080
+# Sin argumentos levanta la API; "migrar", "equipo-alta" y "equipo-baja" son comandos.
+ENTRYPOINT ["dotnet", "Bravo.Video.Ingesta.dll"]

@@ -1,0 +1,20 @@
+# Conector del local. Se construye desde la raíz de video-analitica:
+#   docker build -f deploy/Dockerfile.conector -t bravo-video-conector .
+# SDK 10.0.403 trae el runtime 10.0.14, el mismo de la imagen final.
+FROM mcr.microsoft.com/dotnet/sdk:10.0.403-noble AS compilacion
+WORKDIR /src
+COPY Directory.Build.props ./
+COPY src/ src/
+RUN dotnet publish src/Bravo.Video.Conector -c Release -o /app --nologo
+
+FROM mcr.microsoft.com/dotnet/aspnet:10.0.14-noble
+WORKDIR /app
+COPY --from=compilacion /app ./
+# La cola vive en un volumen. Se crea acá con dueño "app" para que el volumen
+# nuevo herede los permisos y el proceso no corra como root.
+RUN mkdir -p /var/lib/bravo-video/cola && chown -R $APP_UID /var/lib/bravo-video
+USER $APP_UID
+ENV ASPNETCORE_URLS=http://0.0.0.0:8080 \
+    VIDEO_CONECTOR_CONFIG=/etc/bravo-video/conector.json
+EXPOSE 8080
+ENTRYPOINT ["dotnet", "Bravo.Video.Conector.dll"]

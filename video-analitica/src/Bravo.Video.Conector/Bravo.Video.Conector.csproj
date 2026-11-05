@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <ItemGroup>
+    <PackageReference Include="MQTTnet" Version="5.2.0.1603" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Bravo.Video.Contratos\Bravo.Video.Contratos.csproj" />
+    <ProjectReference Include="..\Bravo.Video.Lectores\Bravo.Video.Lectores.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Bravo.Video.Conector.Tests" />
+  </ItemGroup>
+</Project>

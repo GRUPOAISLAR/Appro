@@ -1,0 +1,15 @@
+bin/
+obj/
+*.user
+.vs/
+# Capturas y exportes reales: nunca al repo.
+capturas/
+*.mp4
+*.jpg
+*.png
+!docs/**/*.png
+.env
+# Configuración real de cada instalación.
+deploy/local/conector/conector.json
+deploy/servidor/.env
+deploy/local/.env

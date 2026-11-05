@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="..\Bravo.Video.Lectores\Bravo.Video.Lectores.csproj" />
+    <ProjectReference Include="..\Bravo.Video.Evaluacion\Bravo.Video.Evaluacion.csproj" />
+  </ItemGroup>
+</Project>
