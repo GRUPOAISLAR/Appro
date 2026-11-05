@@ -170,7 +170,47 @@ public class LectoresPruebas
         Assert.NotNull(l);
         Assert.Null(l.PatenteLeida);
         Assert.Equal(TimeSpan.FromHours(-3), l.Ts.Offset);
-        Assert.Equal($"{l.Ts.ToUnixTimeMilliseconds()}:-", l.IdOrigen);
+        Assert.Equal(l.Ts.ToUnixTimeMilliseconds().ToString(), l.IdOrigen);
+    }
+
+    [Fact]
+    public void Hikvision_sin_uuid_el_id_no_lleva_la_patente()
+    {
+        // El idOrigen y el eventId sobreviven a la anonimización: no pueden contener la patente.
+        var xml = AlertaHikvision.Replace("<UUID>00000000-0000-0000-0000-00000000abcd</UUID>", "");
+        var l = LectorHikvisionAnpr.Leer(xml, "anpr-ingreso", "V5.7.0", BuenosAires)!;
+
+        Assert.Equal("AA000AA", l.PatenteLeida);
+        Assert.DoesNotContain("AA000AA", l.IdOrigen);
+        Assert.Matches("^[0-9]+$", l.IdOrigen);
+    }
+
+    [Theory]
+    [InlineData("2026-11-04T10:15:30-03:00", -180)]
+    [InlineData("2026-11-04T10:15:30-0300", -180)]
+    [InlineData("2026-11-04T10:15:30-03", -180)]
+    [InlineData("2026-11-04T13:15:30Z", 0)]
+    [InlineData("2026-11-04T18:45:30+05:30", 330)]
+    [InlineData("2026-11-04T10:15:30.250-03:00", -180)]
+    [InlineData("2026-11-04T10:15:30", -180)] // sin zona: la de la sede
+    public void Hikvision_hora_con_cualquier_forma_de_desplazamiento(string fecha, int minutos)
+    {
+        var xml = AlertaHikvision.Replace("2026-11-04T10:15:30-03:00", fecha);
+        var l = LectorHikvisionAnpr.Leer(xml, "anpr-ingreso", "V5.7.0", BuenosAires)!;
+
+        // El instante es el mismo en todos los casos, sin importar la zona de la máquina.
+        Assert.Equal(new DateTimeOffset(2026, 11, 4, 13, 15, 30, TimeSpan.Zero), new DateTimeOffset(l.Ts.UtcDateTime.Ticks - l.Ts.UtcDateTime.Ticks % TimeSpan.TicksPerSecond, TimeSpan.Zero));
+        Assert.Equal(TimeSpan.FromMinutes(minutos), l.Ts.Offset);
+    }
+
+    [Theory]
+    [InlineData("2026-11-04 10:15:30")]
+    [InlineData("04/11/2026 10:15:30")]
+    [InlineData("2026-11-04T10:15:30-25:00")]
+    public void Hikvision_rechaza_horas_ambiguas(string fecha)
+    {
+        var xml = AlertaHikvision.Replace("2026-11-04T10:15:30-03:00", fecha);
+        Assert.Throws<MensajeInvalidoException>(() => LectorHikvisionAnpr.Leer(xml, "c", "v", BuenosAires));
     }
 
     [Fact]

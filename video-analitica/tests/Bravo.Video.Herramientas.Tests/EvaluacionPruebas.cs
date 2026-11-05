@@ -163,6 +163,7 @@ public class PlanillasPruebas
     [InlineData("otra,cosa\n")]
     [InlineData("eventId,ts,patenteReal,periodo\n,2026-11-10T08:00:00-03:00,ZV100AA\n")]
     [InlineData("eventId,ts,patenteReal,periodo\n,2026-11-10T08:00:00-03:00,ZV100AA,TARDE\n")]
+    [InlineData("eventId,ts,patenteReal,periodo\n,2026-11-10T08:00:00,ZV100AA,DIA\n")] // sin zona
     public void Rechaza_planillas_mal_armadas(string csv)
     {
         Assert.Throws<FormatException>(() => Planillas.LeerEtiquetas(new StringReader(csv)));

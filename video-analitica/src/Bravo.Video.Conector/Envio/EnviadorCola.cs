@@ -54,7 +54,19 @@ public sealed class EnviadorCola(
                 continue;
             }
 
-            var resultado = await EnviarUnLoteAsync(ct);
+            ResultadoEnvio resultado;
+            try
+            {
+                resultado = await EnviarUnLoteAsync(ct);
+            }
+            catch (Exception e) when (!ct.IsCancellationRequested)
+            {
+                // Nada que pase acá puede apagar el conector: Kestrel y MQTT corren en
+                // el mismo proceso, y con ellos se perderían las lecturas nuevas.
+                log.LogError("Error inesperado al enviar ({Tipo}); se reintenta.", e.GetType().Name);
+                resultado = ResultadoEnvio.Reintentar;
+            }
+
             if (resultado == ResultadoEnvio.Reintentar)
             {
                 await Task.Delay(espera, reloj, ct);
@@ -112,7 +124,19 @@ public sealed class EnviadorCola(
                 return ResultadoEnvio.Reintentar;
             }
 
-            var r = await respuesta.Content.ReadFromJsonAsync<RespuestaIngesta>(OpcionesRespuesta, ct);
+            RespuestaIngesta? r;
+            try
+            {
+                r = await respuesta.Content.ReadFromJsonAsync<RespuestaIngesta>(OpcionesRespuesta, ct);
+            }
+            catch (Exception e) when (e is JsonException or NotSupportedException)
+            {
+                // Un 200 que no es la respuesta de la ingesta (portal cautivo, proxy):
+                // no se sabe si llegó, así que no se borra nada y se reintenta.
+                log.LogWarning("Respuesta 2xx que no es de la ingesta; se reintenta.");
+                return ResultadoEnvio.Reintentar;
+            }
+
             if (r is null)
             {
                 return ResultadoEnvio.Reintentar;

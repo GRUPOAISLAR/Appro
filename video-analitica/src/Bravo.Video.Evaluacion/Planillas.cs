@@ -108,6 +108,12 @@ public static class Planillas
 
     private static DateTimeOffset Fecha(string texto, int indice)
     {
+        // Misma regla que el contrato: sin zona explícita no se adivina con la de la máquina.
+        if (!ConvertidorFechaConZona.TieneZona(texto))
+        {
+            throw new FormatException($"Fila {indice + 2}: la fecha no tiene zona horaria explícita (Z o ±hh:mm).");
+        }
+
         if (!DateTimeOffset.TryParse(texto, CultureInfo.InvariantCulture, DateTimeStyles.None, out var ts))
         {
             throw new FormatException($"Fila {indice + 2}: fecha inválida.");

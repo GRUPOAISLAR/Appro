@@ -136,6 +136,23 @@ public class ContratosPruebas
     }
 
     [Fact]
+    public void Validador_acota_los_largos_que_tiene_la_base()
+    {
+        var largo = Ingreso() with { IdOrigen = new string('x', ValidadorEvento.LargoMaximoIdOrigen + 1) };
+        Assert.Contains(ValidadorEvento.Validar(largo), e => e.Contains("idOrigen"));
+
+        var latido = new DispositivoLatido
+        {
+            EventId = Guid.NewGuid(), Sede = "S", Dispositivo = "D", Ts = Hora, Fuente = new Fuente("c", "1"),
+            VersionConector = "1", ColaPendiente = 0,
+            Motores = [new EstadoMotor(new string('m', 65), "roto")],
+        };
+        var errores = ValidadorEvento.Validar(latido);
+        Assert.Contains(errores, e => e.Contains("motores.nombre"));
+        Assert.Contains(errores, e => e.Contains("motores.estado"));
+    }
+
+    [Fact]
     public void Latido_no_exige_camara()
     {
         var latido = new DispositivoLatido

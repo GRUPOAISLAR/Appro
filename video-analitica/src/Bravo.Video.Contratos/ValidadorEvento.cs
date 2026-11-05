@@ -7,6 +7,12 @@ namespace Bravo.Video.Contratos;
 public static class ValidadorEvento
 {
     public const int LargoMaximoTexto = 64;
+    public const int LargoMaximoIdOrigen = 128;
+    public const int MaximoMotores = 20;
+
+    // Los largos coinciden con las columnas de la ingesta: un evento que pasa la
+    // validación siempre entra en la base, y uno que no entraría se rechaza con
+    // motivo en vez de trabar el lote entero con un error de la base.
 
     public static IReadOnlyList<string> Validar(EventoVideo evento)
     {
@@ -30,8 +36,13 @@ public static class ValidadorEvento
 
         switch (evento)
         {
-            case EventoVehiculo vehiculo when vehiculo.Patente is { } patente:
-                ValidarPatente(errores, patente);
+            case EventoVehiculo vehiculo:
+                IdOrigen(errores, vehiculo.IdOrigen);
+                if (vehiculo.Patente is { } patente)
+                {
+                    ValidarPatente(errores, patente);
+                }
+
                 break;
             case PersonasCruce cruce:
                 Texto(errores, "linea", cruce.Linea, obligatorio: true);
@@ -48,12 +59,29 @@ public static class ValidadorEvento
                 break;
             case EventoBox box:
                 Texto(errores, "box", box.Box, obligatorio: true);
+                IdOrigen(errores, box.IdOrigen);
                 break;
             case DispositivoLatido latido:
                 Texto(errores, "versionConector", latido.VersionConector, obligatorio: true);
                 if (latido.ColaPendiente < 0)
                 {
                     errores.Add("colaPendiente no puede ser negativa.");
+                }
+
+                if (latido.Motores is null || latido.Motores.Count > MaximoMotores)
+                {
+                    errores.Add($"motores tiene que tener entre 0 y {MaximoMotores} elementos.");
+                }
+                else
+                {
+                    foreach (var motor in latido.Motores)
+                    {
+                        Texto(errores, "motores.nombre", motor.Nombre, obligatorio: true);
+                        if (motor.Estado is not (EstadosMotor.EnLinea or EstadosMotor.FueraDeLinea or EstadosMotor.Desconocido))
+                        {
+                            errores.Add("motores.estado inválido.");
+                        }
+                    }
                 }
 
                 break;
@@ -74,6 +102,11 @@ public static class ValidadorEvento
             errores.Add("patente.leida vacía o de más de 16 caracteres.");
         }
 
+        if (patente.Normalizada is { Length: > 16 } || patente.Formato is { Length: > 32 })
+        {
+            errores.Add("patente.normalizada (16) o patente.formato (32) demasiado largos.");
+        }
+
         if (patente.Valida != (patente.Normalizada is not null && patente.Formato is not null))
         {
             errores.Add("patente.valida no coincide con normalizada y formato.");
@@ -87,6 +120,14 @@ public static class ValidadorEvento
         if (patente.Correcciones < 0)
         {
             errores.Add("patente.correcciones no puede ser negativa.");
+        }
+    }
+
+    private static void IdOrigen(List<string> errores, string? idOrigen)
+    {
+        if (idOrigen is { Length: > LargoMaximoIdOrigen })
+        {
+            errores.Add($"idOrigen supera {LargoMaximoIdOrigen} caracteres.");
         }
     }
 

@@ -12,7 +12,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Bravo.Video.Ingesta.Datos.Migraciones
 {
     [DbContext(typeof(VideoDbContext))]
-    [Migration("20261104233226_Inicial")]
+    [Migration("20261105114502_Inicial")]
     partial class Inicial
     {
         /// <inheritdoc />
@@ -61,6 +61,10 @@ namespace Bravo.Video.Ingesta.Datos.Migraciones
 
             modelBuilder.Entity("Bravo.Video.Ingesta.Datos.EventoGuardado", b =>
                 {
+                    b.Property<string>("Dispositivo")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
                     b.Property<Guid>("EventId")
                         .HasColumnType("uniqueidentifier");
 
@@ -80,11 +84,6 @@ namespace Bravo.Video.Ingesta.Datos.Migraciones
 
                     b.Property<long?>("DesvioRelojMs")
                         .HasColumnType("bigint");
-
-                    b.Property<string>("Dispositivo")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("nvarchar(64)");
 
                     b.Property<int?>("Entradas")
                         .HasColumnType("int");
@@ -178,7 +177,7 @@ namespace Bravo.Video.Ingesta.Datos.Migraciones
                         .HasMaxLength(64)
                         .HasColumnType("nvarchar(64)");
 
-                    b.HasKey("EventId");
+                    b.HasKey("Dispositivo", "EventId");
 
                     b.HasIndex("PatenteHash");
 

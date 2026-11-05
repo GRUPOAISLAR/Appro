@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text.RegularExpressions;
 using System.Xml;
 using System.Xml.Linq;
 
@@ -74,10 +75,12 @@ public static class LectorHikvisionAnpr
             confianza = nivel / 100m;
         }
 
-        // Si la cámara no manda UUID, el id sale de la hora y el texto leído:
-        // es lo que hace única a una lectura de la misma cámara.
-        var idOrigen = Hijo(raiz, "UUID")
-            ?? $"{ts.ToUnixTimeMilliseconds()}:{patente ?? "-"}";
+        // Si la cámara no manda UUID, el id sale solo de la hora (la cámara ya entra
+        // en el eventId). NUNCA de la patente: el idOrigen y el eventId se conservan
+        // después de anonimizar, y con la patente adentro se la podría recuperar
+        // probando combinaciones. Límite conocido: dos lecturas de la misma cámara en
+        // el mismo segundo sin UUID darían el mismo id y la segunda se descartaría.
+        var idOrigen = Hijo(raiz, "UUID") ?? ts.ToUnixTimeMilliseconds().ToString(CultureInfo.InvariantCulture);
 
         return new LecturaVehiculo
         {
@@ -92,34 +95,50 @@ public static class LectorHikvisionAnpr
         };
     }
 
-    private static DateTimeOffset InterpretarFecha(string texto, TimeZoneInfo zonaSede)
-    {
-        var t = texto.Trim();
-        if (DateTimeOffset.TryParse(t, CultureInfo.InvariantCulture, DateTimeStyles.None, out var conZona)
-            && TieneZona(t))
-        {
-            return conZona;
-        }
+    // Hora con fracción opcional y desplazamiento opcional: Z, ±hh:mm, ±hhmm o ±hh.
+    private static readonly Regex FormatoFecha = new(
+        @"^(?<base>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,7})?)(?<zona>Z|z|[+-]\d{2}(?::?\d{2})?)?$",
+        RegexOptions.CultureInvariant);
 
-        // Sin desplazamiento: la hora es la local de la cámara, que debe coincidir con la de la sede (NTP).
-        if (!DateTime.TryParse(t, CultureInfo.InvariantCulture, DateTimeStyles.None, out var local))
+    /// <summary>
+    /// Interpreta la hora de la alerta sin depender de la zona de la máquina. Con
+    /// desplazamiento (en cualquiera de las formas que usan los firmwares) se
+    /// respeta; sin desplazamiento, la hora es la local de la cámara y se toma en la
+    /// zona de la sede. Cualquier otro formato se rechaza.
+    /// </summary>
+    internal static DateTimeOffset InterpretarFecha(string texto, TimeZoneInfo zonaSede)
+    {
+        var m = FormatoFecha.Match(texto.Trim());
+        if (!m.Success)
         {
             throw new MensajeInvalidoException("<dateTime> con formato inválido.");
         }
 
-        local = DateTime.SpecifyKind(local, DateTimeKind.Unspecified);
-        return new DateTimeOffset(local, zonaSede.GetUtcOffset(local));
-    }
+        var local = DateTime.ParseExact(m.Groups["base"].Value, "yyyy-MM-ddTHH:mm:ss.FFFFFFF",
+            CultureInfo.InvariantCulture, DateTimeStyles.None);
 
-    private static bool TieneZona(string t)
-    {
-        if (t.EndsWith('Z') || t.EndsWith('z'))
+        if (!m.Groups["zona"].Success)
         {
-            return true;
+            // Sin desplazamiento: hora local de la cámara, que debe coincidir con la de la sede (NTP).
+            return new DateTimeOffset(local, zonaSede.GetUtcOffset(local));
         }
 
-        var hora = t.IndexOf('T') is var i and >= 0 ? t[(i + 1)..] : t;
-        return hora.Length >= 6 && (hora[^6] is '+' or '-') && hora[^3] == ':';
+        var zona = m.Groups["zona"].Value;
+        if (zona is "Z" or "z")
+        {
+            return new DateTimeOffset(local, TimeSpan.Zero);
+        }
+
+        var signo = zona[0] == '-' ? -1 : 1;
+        var digitos = zona[1..].Replace(":", string.Empty);
+        var horas = int.Parse(digitos[..2], CultureInfo.InvariantCulture);
+        var minutos = digitos.Length == 4 ? int.Parse(digitos[2..], CultureInfo.InvariantCulture) : 0;
+        if (horas > 14 || minutos > 59)
+        {
+            throw new MensajeInvalidoException("<dateTime> con desplazamiento inválido.");
+        }
+
+        return new DateTimeOffset(local, signo * new TimeSpan(horas, minutos, 0));
     }
 
     private static string? Hijo(XElement padre, string nombre)

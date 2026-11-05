@@ -100,17 +100,17 @@ public sealed class ReceptorHttp(
         }
 
         estado.MensajeRecibido($"{Motores.Milesight}:{sensor}");
+        // Límite conocido: el id de cada línea sale de la hora de recepción, porque el
+        // formato de hora del reporte no está confirmado con un equipo real. Si el
+        // sensor reenvía el mismo reporte, se cuenta dos veces. Se corrige cuando haya
+        // una captura real (preparativos.md). Mientras tanto, todo o nada: un reporte
+        // nunca queda encolado a medias.
         var recibido = reloj.GetUtcNow();
-        foreach (var conteo in conteos)
-        {
-            var evento = ArmadorEventos.Personas(conteo, sensor, origen.Firmware, recibido, configuracion.Sede);
-            if (!cola.Encolar(evento))
-            {
-                return Results.StatusCode(StatusCodes.Status503ServiceUnavailable);
-            }
-        }
+        var eventos = conteos
+            .Select(c => (Contratos.EventoVideo)ArmadorEventos.Personas(c, sensor, origen.Firmware, recibido, configuracion.Sede))
+            .ToList();
 
-        return Results.Ok();
+        return cola.EncolarTodos(eventos) ? Results.Ok() : Results.StatusCode(StatusCodes.Status503ServiceUnavailable);
     }
 
     /// <summary>

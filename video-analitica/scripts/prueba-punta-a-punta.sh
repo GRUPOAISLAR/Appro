@@ -72,14 +72,14 @@ esperar 30 sh -c "curl -sf http://127.0.0.1:$P_CONECTOR/salud | grep -q '\"mqttC
 simular() { (cd "$TMP/Herramientas" && dotnet bravo-video.dll simular --modo mqtt --mqtt-puerto "$P_MQTT" --autos "$AUTOS" "$@"); }
 
 paso "Tanda 1 con todo andando"
-simular --semilla 1 --inicio 2026-11-10 --salida "$TMP/tanda1"
+simular --semilla 1 --inicio "$(date -d "-3 days" +%F)" --salida "$TMP/tanda1"
 esperar 60 sh -c "[ \"\$(curl -sf http://127.0.0.1:$P_CONECTOR/salud | python3 -c 'import sys,json;print(json.load(sys.stdin)[\"colaPendiente\"])')\" = 0 ]" \
   || falla "la cola no se vació en la tanda 1"
 echo "cola vacía"
 
 paso "Corte: se apaga la ingesta y corre la tanda 2"
 kill "$PID_INGESTA"; wait "$PID_INGESTA" 2>/dev/null || true
-simular --semilla 2 --inicio 2026-11-11 --salida "$TMP/tanda2"
+simular --semilla 2 --inicio "$(date -d "-2 days" +%F)" --salida "$TMP/tanda2"
 sleep 3
 EN_COLA="$(pendientes)"
 echo "eventos en cola con la ingesta caída: $EN_COLA"

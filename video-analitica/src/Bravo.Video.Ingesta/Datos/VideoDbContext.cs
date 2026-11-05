@@ -23,7 +23,9 @@ public sealed class VideoDbContext(DbContextOptions<VideoDbContext> opciones) : 
         modelo.Entity<EventoGuardado>(e =>
         {
             e.ToTable("Eventos");
-            e.HasKey(x => x.EventId);
+            // El dispositivo entra en la clave: un equipo no puede "ocupar" el id de un
+            // evento de otro equipo (los ids son predecibles) y hacerlo pasar por duplicado.
+            e.HasKey(x => new { x.Dispositivo, x.EventId });
             e.Property(x => x.EventId).ValueGeneratedNever();
             e.Property(x => x.Tipo).HasMaxLength(32);
             e.Property(x => x.SchemaVersion).HasMaxLength(8);

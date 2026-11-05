@@ -116,11 +116,27 @@ Hecho en `deploy/` y `docs/instalacion-local.md` / `docs/instalacion-servidor.md
 - **Apagado en Frigate:** reconocimiento facial, búsqueda semántica, IA generativa, snapshots y chequeo de versión.
 - **Puertos:** Mosquitto queda sin puerto publicado. La ingesta escucha solo en 127.0.0.1 y el TLS lo pone el proxy de infraestructura.
 
-## Etapa 7 — Verificación
+## Etapa 7 — Verificación · HECHA (revisión independiente y correcciones)
 
 - Tests automáticos con xUnit, solo con datos inventados.
 - Prueba de punta a punta con el simulador: simulador → conector → ingesta → tablero, incluyendo corte de red y reenvío.
 - Revisión independiente del código antes de entregarlo.
+
+**Revisión independiente (5/11).** La hizo un agente aparte que no escribió el código; encontró 8 problemas y se corrigieron los 8:
+
+1. **Alta.** Si la cámara Hikvision no mandaba UUID, el id de respaldo llevaba la patente. Sobrevivía a la anonimización y además se podía recuperar desde el eventId probando combinaciones. Ahora el id de respaldo es solo la hora, y la anonimización también borra `IdOrigen`.
+2. Las horas de Hikvision con desplazamiento `-0300` o `-03` se tomaban en la zona de la máquina. Ahora se aceptan todas las formas y se rechaza cualquier formato ambiguo.
+3. Cualquier excepción no prevista en el enviador apagaba el conector entero, y un archivo dañado lo dejaba reiniciándose sin parar. Ahora:
+   - los archivos ilegibles van a cuarentena;
+   - un 200 que no viene de la ingesta (portal cautivo, proxy) no borra la cola;
+   - el enviador y el latido no se caen.
+4. Un reporte del sensor podía quedar encolado a medias. Ahora es todo o nada. **Límite pendiente:** si el sensor reenvía el mismo reporte, se cuenta dos veces. Se resuelve cuando haya una captura real con la hora del reporte.
+5. Un evento que pasaba la validación pero no entraba en una columna de SQL Server trababa el lote. Ahora el validador conoce los largos, y si la base rechaza un evento se guarda de a uno y solo ese vuelve rechazado.
+6. Un reloj adelantado estiraba la retención de la patente. Ahora se rechazan horas a más de un día en el futuro, y la retención se cuenta desde la fecha más vieja entre el hecho y la recepción.
+7. La planilla de etiquetas aceptaba horas sin zona horaria. Ahora las rechaza.
+8. Un equipo podía "ocupar" el eventId de otro y hacerlo pasar por duplicado. Ahora la clave de la tabla es (dispositivo, eventId). La migración `Inicial` se regeneró: todavía no se aplicó en ningún lado.
+
+Además, el simulador ahora usa por defecto días pasados, porque la ingesta rechaza las fechas en el futuro.
 
 ## Etapa 8 — Entrega
 
@@ -146,6 +162,6 @@ Hecho en `deploy/` y `docs/instalacion-local.md` / `docs/instalacion-servidor.md
 | 4 | Decisión del Owner sobre patentes en tablero y exportación | Matías (en el PR #1) |
 | 5 | Ninguno (hecha) | — |
 | 6 | Hecha en código; instalar espera la aprobación de Python y el plazo de los recortes | Owner |
-| 7 | Ninguno | — |
+| 7 | Ninguno (hecha) | — |
 | 8 | Repo definitivo de GitHub (hoy vive en `GRUPOAISLAR/Appro`) | Gastón (crear repo y pasarme el nombre) |
 | 9 | Aprobación de Python, legal, hardware, servidor | Owner, empresa e infraestructura |

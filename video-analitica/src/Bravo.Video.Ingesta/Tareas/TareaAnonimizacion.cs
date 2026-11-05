@@ -1,12 +1,15 @@
+using Bravo.Video.Contratos;
 using Bravo.Video.Ingesta.Datos;
 using Microsoft.EntityFrameworkCore;
 
 namespace Bravo.Video.Ingesta.Tareas;
 
 /// <summary>
-/// Borra la patente en texto (leída y normalizada) de los eventos más viejos que
-/// el plazo de retención y deja solo el hash. El plazo se cuenta desde la hora
-/// del hecho (<c>TsUtc</c>), no desde que llegó al servidor.
+/// Borra la patente en texto (leída y normalizada) y el id de origen de los
+/// eventos de vehículo más viejos que el plazo de retención, y deja solo el hash.
+/// El plazo se cuenta desde lo que haya pasado primero: la hora del hecho o la
+/// llegada al servidor. Así un equipo con el reloj adelantado no estira la
+/// retención.
 ///
 /// Es un UPDATE por lote, idempotente: si el servidor se cae a la mitad, la
 /// próxima corrida sigue donde quedó.
@@ -45,12 +48,14 @@ public sealed class TareaAnonimizacion(
         var corte = ahoraUtc - retencion;
         return db.Eventos
             .Where(e => e.PatenteAnonimizadaUtc == null
-                && (e.PatenteLeida != null || e.PatenteNormalizada != null)
-                && e.TsUtc < corte)
+                && (e.Tipo == TiposEvento.VehiculoIngreso || e.Tipo == TiposEvento.VehiculoEgreso)
+                && (e.TsUtc < corte || e.RecibidoUtc < corte))
             .ExecuteUpdateAsync(
                 s => s
                     .SetProperty(e => e.PatenteLeida, (string?)null)
                     .SetProperty(e => e.PatenteNormalizada, (string?)null)
+                    // El id de origen lo genera el motor; por defensa se borra también.
+                    .SetProperty(e => e.IdOrigen, (string?)null)
                     .SetProperty(e => e.PatenteAnonimizadaUtc, ahoraUtc),
                 ct);
     }

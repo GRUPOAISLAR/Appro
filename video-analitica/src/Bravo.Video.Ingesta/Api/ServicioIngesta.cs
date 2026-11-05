@@ -27,6 +27,8 @@ public sealed record RespuestaLote(
 /// </summary>
 public sealed class ServicioIngesta(VideoDbContext db, HashPatente hash, TimeProvider reloj, ILogger<ServicioIngesta> log)
 {
+    public static readonly TimeSpan ToleranciaFuturo = TimeSpan.FromDays(1);
+
     public async Task<RespuestaLote> ProcesarAsync(Equipo equipo, JsonElement eventos, CancellationToken ct)
     {
         var ahora = reloj.GetUtcNow();
@@ -34,6 +36,7 @@ public sealed class ServicioIngesta(VideoDbContext db, HashPatente hash, TimePro
         var candidatos = new List<EventoVideo>();
         var vistos = new HashSet<Guid>();
         var duplicados = 0;
+        var indicePorId = new Dictionary<Guid, int>();
 
         var indice = -1;
         foreach (var elemento in eventos.EnumerateArray())
@@ -75,6 +78,13 @@ public sealed class ServicioIngesta(VideoDbContext db, HashPatente hash, TimePro
                 errores.Add("sede no coincide con la del equipo.");
             }
 
+            // Un reloj adelantado no puede estirar la retención de la patente ni
+            // ensuciar los tableros con eventos "del futuro".
+            if (evento.Ts.UtcDateTime > ahora.UtcDateTime + ToleranciaFuturo)
+            {
+                errores.Add("ts está más de un día en el futuro respecto del servidor.");
+            }
+
             if (errores.Count > 0)
             {
                 rechazados.Add(new EventoRechazado(indice, evento.EventId, errores));
@@ -88,10 +98,14 @@ public sealed class ServicioIngesta(VideoDbContext db, HashPatente hash, TimePro
             }
 
             candidatos.Add(evento);
+            indicePorId[evento.EventId] = indice;
         }
 
-        var aceptados = await GuardarAsync(candidatos, ahora.UtcDateTime, ct);
-        duplicados += candidatos.Count - aceptados;
+        var (aceptados, fallidos) = await GuardarAsync(equipo.Dispositivo, candidatos, ahora.UtcDateTime, ct);
+        rechazados.AddRange(fallidos.Select(id => new EventoRechazado(
+            indicePorId[id], id, ["La base no pudo guardar el evento."])));
+        rechazados.Sort((a, b) => a.Indice.CompareTo(b.Indice));
+        duplicados += candidatos.Count - aceptados - fallidos.Count;
 
         equipo.UltimoContactoUtc = ahora.UtcDateTime;
         await db.SaveChangesAsync(ct);
@@ -104,38 +118,73 @@ public sealed class ServicioIngesta(VideoDbContext db, HashPatente hash, TimePro
         return new RespuestaLote(ahora, aceptados, duplicados, rechazados);
     }
 
-    private async Task<int> GuardarAsync(List<EventoVideo> candidatos, DateTime recibidoUtc, CancellationToken ct)
+    /// <summary>
+    /// Guarda los que no existen todavía para este equipo. Si el guardado en bloque
+    /// falla dos veces, guarda de a uno: el evento que la base no acepta se rechaza
+    /// con motivo y no traba al resto (si no, el conector reintentaría el mismo
+    /// lote para siempre).
+    /// </summary>
+    private async Task<(int Aceptados, List<Guid> Fallidos)> GuardarAsync(
+        string dispositivo, List<EventoVideo> candidatos, DateTime recibidoUtc, CancellationToken ct)
     {
         if (candidatos.Count == 0)
         {
-            return 0;
+            return (0, []);
         }
 
-        // Dos intentos: si otro pedido del mismo equipo guardó alguno entre la
-        // consulta y el guardado, la clave primaria lo frena y se vuelve a filtrar.
-        for (var intento = 1; ; intento++)
+        // Primer intento en bloque; el segundo cubre que otro pedido del mismo equipo
+        // haya guardado alguno entre la consulta y el guardado.
+        for (var intento = 1; intento <= 2; intento++)
         {
-            var ids = candidatos.Select(e => e.EventId).ToList();
-            var existentes = await db.Eventos.AsNoTracking()
-                .Where(e => ids.Contains(e.EventId))
-                .Select(e => e.EventId)
-                .ToHashSetAsync(ct);
-
-            var nuevos = candidatos.Where(e => !existentes.Contains(e.EventId)).ToList();
+            var nuevos = await NuevosAsync(dispositivo, candidatos, ct);
             db.Eventos.AddRange(nuevos.Select(e => Mapeo.AGuardado(e, recibidoUtc, hash)));
-
             try
             {
                 await db.SaveChangesAsync(ct);
-                return nuevos.Count;
+                return (nuevos.Count, []);
             }
-            catch (DbUpdateException) when (intento == 1)
+            catch (DbUpdateException)
             {
-                foreach (var entrada in db.ChangeTracker.Entries<EventoGuardado>().ToList())
-                {
-                    entrada.State = EntityState.Detached;
-                }
+                Soltar();
             }
+        }
+
+        var aceptados = 0;
+        var fallidos = new List<Guid>();
+        foreach (var evento in await NuevosAsync(dispositivo, candidatos, ct))
+        {
+            db.Eventos.Add(Mapeo.AGuardado(evento, recibidoUtc, hash));
+            try
+            {
+                await db.SaveChangesAsync(ct);
+                aceptados++;
+            }
+            catch (DbUpdateException e)
+            {
+                Soltar();
+                fallidos.Add(evento.EventId);
+                log.LogError("La base rechazó un evento ({Tipo}).", e.InnerException?.GetType().Name ?? e.GetType().Name);
+            }
+        }
+
+        return (aceptados, fallidos);
+    }
+
+    private async Task<List<EventoVideo>> NuevosAsync(string dispositivo, List<EventoVideo> candidatos, CancellationToken ct)
+    {
+        var ids = candidatos.Select(e => e.EventId).ToList();
+        var existentes = await db.Eventos.AsNoTracking()
+            .Where(e => e.Dispositivo == dispositivo && ids.Contains(e.EventId))
+            .Select(e => e.EventId)
+            .ToHashSetAsync(ct);
+        return candidatos.Where(e => !existentes.Contains(e.EventId)).ToList();
+    }
+
+    private void Soltar()
+    {
+        foreach (var entrada in db.ChangeTracker.Entries<EventoGuardado>().ToList())
+        {
+            entrada.State = EntityState.Detached;
         }
     }
 

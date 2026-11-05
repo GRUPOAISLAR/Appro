@@ -63,7 +63,8 @@ public sealed class ConvertidorFechaConZona : JsonConverter<DateTimeOffset>
         return fecha;
     }
 
-    internal static bool TieneZona(string texto)
+    /// <summary>True si el texto termina en "Z" o en un desplazamiento "±hh:mm".</summary>
+    public static bool TieneZona(string texto)
     {
         var t = texto.Trim();
         if (t.EndsWith('Z') || t.EndsWith('z'))

@@ -47,7 +47,7 @@ public static class Program
 
     public const string Ayuda = """
         bravo-video simular --modo seco|mqtt|http
-            --semilla 1 --dias 1 --autos 200 --pais AR --inicio 2026-11-10
+            --semilla 1 --dias 1 --autos 200 --pais AR --inicio AAAA-MM-DD (por defecto: días pasados)
             --zona America/Argentina/Buenos_Aires --sede AR-PRUEBA-01 --dispositivo minipc-01
             --motor frigate|hikvision-anpr   (seco y mqtt: frigate; http: hikvision-anpr)
             --sin-ruido                       (todas las lecturas perfectas)
@@ -64,7 +64,12 @@ public static class Program
         var modo = p.GetValueOrDefault("modo", "seco");
         var pais = Enum.Parse<Pais>(p.GetValueOrDefault("pais", "AR"), ignoreCase: true);
         var zona = TimeZoneInfo.FindSystemTimeZoneById(p.GetValueOrDefault("zona", "America/Argentina/Buenos_Aires"));
-        var dia = DateTime.ParseExact(p.GetValueOrDefault("inicio", "2026-11-10"), "yyyy-MM-dd", CultureInfo.InvariantCulture);
+        var dias = int.Parse(p.GetValueOrDefault("dias", "1"), CultureInfo.InvariantCulture);
+
+        // Por defecto, días ya pasados: la ingesta rechaza eventos más de un día en el futuro.
+        var dia = p.TryGetValue("inicio", out var inicio)
+            ? DateTime.ParseExact(inicio, "yyyy-MM-dd", CultureInfo.InvariantCulture)
+            : TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, zona).Date.AddDays(-(dias + 1));
         var motor = p.GetValueOrDefault("motor", modo == "http" ? Motores.HikvisionAnpr : Motores.Frigate);
         var sinRuido = p.ContainsKey("sin-ruido");
 
@@ -72,7 +77,7 @@ public static class Program
         {
             Semilla = int.Parse(p.GetValueOrDefault("semilla", "1"), CultureInfo.InvariantCulture),
             Inicio = new DateTimeOffset(dia, zona.GetUtcOffset(dia)),
-            Dias = int.Parse(p.GetValueOrDefault("dias", "1"), CultureInfo.InvariantCulture),
+            Dias = dias,
             AutosPorDia = int.Parse(p.GetValueOrDefault("autos", "200"), CultureInfo.InvariantCulture),
             Pais = pais,
             RuidoDia = sinRuido ? RuidoLectura.Ninguno : RuidoLectura.DiaPorDefecto,

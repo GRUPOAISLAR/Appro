@@ -29,6 +29,7 @@ public sealed class ColaDisco
     private readonly int _maximo;
     private readonly Lock _candado = new();
     private readonly SemaphoreSlim _hayNuevos = new(0);
+    private readonly HashSet<string> _ilegibles = new(StringComparer.Ordinal);
     private long _secuencia;
     private int _pendientes;
 
@@ -53,6 +54,18 @@ public sealed class ColaDisco
 
     /// <summary>Eventos rechazados por cola llena desde que arrancó el conector.</summary>
     public long RechazadosPorLlena { get; private set; }
+
+    /// <summary>Archivos que no se pudieron leer ni mover a cuarentena (ej. permisos de otro usuario).</summary>
+    public int Ilegibles
+    {
+        get
+        {
+            lock (_candado)
+            {
+                return _ilegibles.Count;
+            }
+        }
+    }
 
     public int EnCuarentena => Directory.EnumerateFiles(_cuarentena, "*" + Extension).Count();
 
@@ -81,7 +94,37 @@ public sealed class ColaDisco
         return true;
     }
 
-    /// <summary>Los <paramref name="cantidad"/> eventos más viejos. Los ilegibles van a cuarentena.</summary>
+    /// <summary>
+    /// Encola todos o ninguno: si no hay lugar para todos, no escribe nada. Lo usa
+    /// el sensor de conteo, cuyo reporte trae varias líneas; si se encolaran a
+    /// medias y el sensor reintentara, las primeras quedarían duplicadas.
+    /// </summary>
+    public bool EncolarTodos(IReadOnlyList<EventoVideo> eventos)
+    {
+        lock (_candado)
+        {
+            if (_pendientes + eventos.Count > _maximo)
+            {
+                RechazadosPorLlena += eventos.Count;
+                return false;
+            }
+
+            foreach (var evento in eventos)
+            {
+                // System.Threading.Lock es reentrante: Encolar vuelve a tomarlo sin bloquearse.
+                Encolar(evento);
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Los <paramref name="cantidad"/> eventos más viejos. Un archivo que no se
+    /// puede leer o interpretar, por el motivo que sea, va a cuarentena; si
+    /// tampoco se puede mover (permisos), se saltea y se cuenta en
+    /// <see cref="Ilegibles"/>. Nunca frena la cola.
+    /// </summary>
     public IReadOnlyList<ElementoCola> Tomar(int cantidad)
     {
         lock (_candado)
@@ -89,6 +132,11 @@ public sealed class ColaDisco
             var resultado = new List<ElementoCola>(cantidad);
             foreach (var archivo in Directory.EnumerateFiles(_directorio, "*" + Extension).Order(StringComparer.Ordinal))
             {
+                if (_ilegibles.Contains(archivo))
+                {
+                    continue;
+                }
+
                 if (resultado.Count == cantidad)
                 {
                     break;
@@ -103,11 +151,19 @@ public sealed class ColaDisco
                         continue;
                     }
                 }
-                catch (JsonException)
+                catch (Exception e) when (e is JsonException or NotSupportedException or InvalidOperationException
+                                              or IOException or UnauthorizedAccessException)
                 {
                 }
 
-                MoverACuarentenaSinCandado(archivo);
+                try
+                {
+                    MoverACuarentenaSinCandado(archivo);
+                }
+                catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+                {
+                    _ilegibles.Add(archivo);
+                }
             }
 
             return resultado;

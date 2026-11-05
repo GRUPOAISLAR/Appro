@@ -32,10 +32,10 @@ namespace Bravo.Video.Ingesta.Datos.Migraciones
                 columns: table => new
                 {
                     EventId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Dispositivo = table.Column<string>(type: "nvarchar(64)", maxLength: 64, nullable: false),
                     Tipo = table.Column<string>(type: "nvarchar(32)", maxLength: 32, nullable: false),
                     SchemaVersion = table.Column<string>(type: "nvarchar(8)", maxLength: 8, nullable: false),
                     Sede = table.Column<string>(type: "nvarchar(64)", maxLength: 64, nullable: false),
-                    Dispositivo = table.Column<string>(type: "nvarchar(64)", maxLength: 64, nullable: false),
                     Camara = table.Column<string>(type: "nvarchar(64)", maxLength: 64, nullable: true),
                     TsUtc = table.Column<DateTime>(type: "datetime2", nullable: false),
                     TsOffsetMinutos = table.Column<int>(type: "int", nullable: false),
@@ -65,7 +65,7 @@ namespace Bravo.Video.Ingesta.Datos.Migraciones
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_Eventos", x => x.EventId);
+                    table.PrimaryKey("PK_Eventos", x => new { x.Dispositivo, x.EventId });
                 });
 
             migrationBuilder.CreateIndex(

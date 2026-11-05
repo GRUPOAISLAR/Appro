@@ -238,6 +238,54 @@ public class IngestaPruebas(ServidorDePrueba servidor)
     }
 
     [Fact]
+    public async Task Rechaza_horas_mas_de_un_dia_en_el_futuro()
+    {
+        var futuro = Ingreso(ts: DateTimeOffset.UtcNow.AddDays(3));
+        var r = await Leer(await servidor.Cliente().PostAsync("/api/v1/eventos", Lote(futuro)));
+
+        Assert.Equal(0, r.Aceptados);
+        Assert.Contains("futuro", Assert.Single(r.Rechazados).Errores.Single());
+    }
+
+    [Fact]
+    public async Task Anonimiza_por_fecha_de_recepcion_y_borra_el_id_de_origen()
+    {
+        // Hecho de ayer, pero recibido hace 40 días: manda la fecha más vieja.
+        var evento = Ingreso(ts: DateTimeOffset.UtcNow.AddDays(-1), patente: "AA333AA");
+        await Leer(await servidor.Cliente().PostAsync("/api/v1/eventos", Lote(evento)));
+        await servidor.ConBaseAsync(db => db.Eventos
+            .Where(e => e.EventId == evento.EventId)
+            .ExecuteUpdateAsync(x => x.SetProperty(e => e.RecibidoUtc, DateTime.UtcNow.AddDays(-40))));
+
+        await servidor.ConBaseAsync(db => TareaAnonimizacion.AnonimizarAsync(db, DateTime.UtcNow, TimeSpan.FromDays(30), default));
+
+        var g = await servidor.ConBaseAsync(db => db.Eventos.AsNoTracking().SingleAsync(e => e.EventId == evento.EventId));
+        Assert.Null(g.PatenteNormalizada);
+        Assert.Null(g.IdOrigen);
+        Assert.NotNull(g.PatenteHash);
+    }
+
+    [Fact]
+    public async Task Un_equipo_no_puede_ocupar_el_id_de_otro()
+    {
+        var token = Tokens.Generar();
+        await servidor.ConBaseAsync(async db =>
+        {
+            db.Equipos.Add(new Equipo { Dispositivo = "minipc-02", Sede = ServidorDePrueba.Sede, TokenHash = Tokens.Hash(token), CreadoUtc = DateTime.UtcNow });
+            return await db.SaveChangesAsync();
+        });
+
+        var legitimo = Ingreso();
+        var ocupado = legitimo with { Dispositivo = "minipc-02" }; // mismo eventId, otro equipo
+
+        var r2 = await Leer(await servidor.Cliente(token).PostAsync("/api/v1/eventos", Lote(ocupado)));
+        var r1 = await Leer(await servidor.Cliente().PostAsync("/api/v1/eventos", Lote(legitimo)));
+
+        Assert.Equal(1, r2.Aceptados);
+        Assert.Equal(1, r1.Aceptados); // antes se contaba como duplicado y se perdía
+    }
+
+    [Fact]
     public async Task Equipo_dado_de_baja_no_entra()
     {
         var token = Tokens.Generar();
@@ -326,5 +374,56 @@ public class ComandosPruebas
             Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
             File.Delete(archivo);
         }
+    }
+}
+
+/// <summary>Un evento que la base rechaza no traba al resto del lote.</summary>
+public class GuardadoDeAUnoPruebas
+{
+    private sealed class FallaPara(Guid eventId) : Microsoft.EntityFrameworkCore.Diagnostics.SaveChangesInterceptor
+    {
+        public override ValueTask<Microsoft.EntityFrameworkCore.Diagnostics.InterceptionResult<int>> SavingChangesAsync(
+            Microsoft.EntityFrameworkCore.Diagnostics.DbContextEventData datos,
+            Microsoft.EntityFrameworkCore.Diagnostics.InterceptionResult<int> resultado,
+            CancellationToken ct = default)
+        {
+            if (datos.Context!.ChangeTracker.Entries<EventoGuardado>().Any(e => e.Entity.EventId == eventId))
+            {
+                throw new DbUpdateException("simulada: la base no acepta este evento");
+            }
+
+            return ValueTask.FromResult(resultado);
+        }
+    }
+
+    [Fact]
+    public async Task Rechaza_solo_el_que_falla()
+    {
+        await using var conexion = new Microsoft.Data.Sqlite.SqliteConnection("Data Source=:memory:");
+        await conexion.OpenAsync();
+        var malo = Guid.NewGuid();
+        var opciones = new DbContextOptionsBuilder<VideoDbContext>().UseSqlite(conexion).AddInterceptors(new FallaPara(malo)).Options;
+        await using var db = new VideoDbContext(opciones);
+        await db.Database.EnsureCreatedAsync();
+        var equipo = new Equipo { Dispositivo = ServidorDePrueba.Dispositivo, Sede = ServidorDePrueba.Sede, TokenHash = new string('0', 64) };
+        db.Equipos.Add(equipo);
+        await db.SaveChangesAsync();
+
+        var servicio = new ServicioIngesta(db, new Bravo.Video.Patentes.HashPatente(new byte[32]), TimeProvider.System,
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<ServicioIngesta>.Instance);
+
+        EventoVideo Box(Guid id) => new BoxLibre
+        {
+            EventId = id, Sede = ServidorDePrueba.Sede, Dispositivo = ServidorDePrueba.Dispositivo, Camara = "c",
+            Ts = DateTimeOffset.UtcNow, Fuente = new Fuente("m", "1"), Box = "b",
+        };
+        var lote = JsonSerializer.SerializeToElement(new[] { Box(Guid.NewGuid()), Box(malo), Box(Guid.NewGuid()) }, OpcionesJson.Eventos);
+
+        var r = await servicio.ProcesarAsync(equipo, lote, default);
+
+        Assert.Equal(2, r.Aceptados);
+        Assert.Equal(0, r.Duplicados);
+        var rechazo = Assert.Single(r.Rechazados);
+        Assert.Equal((1, malo), (rechazo.Indice, rechazo.EventId!.Value));
     }
 }

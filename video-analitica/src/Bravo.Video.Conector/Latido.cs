@@ -24,10 +24,16 @@ public sealed class Latido(
         using var temporizador = new PeriodicTimer(TimeSpan.FromMinutes(1), reloj);
         do
         {
-            var latido = Armar();
-            if (!cola.Encolar(latido))
+            try
             {
-                log.LogError("Cola llena: no se pudo guardar el latido.");
+                if (!cola.Encolar(Armar()))
+                {
+                    log.LogError("Cola llena: no se pudo guardar el latido.");
+                }
+            }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+            {
+                log.LogError("No se pudo escribir el latido en la cola ({Tipo}); ¿disco lleno?", e.GetType().Name);
             }
 
             if (estado.Descartes > 0 || estado.Invalidos > 0 || cola.RechazadosPorLlena > 0)

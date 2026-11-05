@@ -28,6 +28,7 @@ app.MapGet("/salud", (ColaDisco cola, EstadoConector estado) => Results.Ok(new
 {
     colaPendiente = cola.Pendientes,
     enCuarentena = cola.EnCuarentena,
+    ilegibles = cola.Ilegibles,
     mqttConectado = estado.MqttConectado,
     desvioRelojMs = estado.DesvioRelojMs,
 }));
