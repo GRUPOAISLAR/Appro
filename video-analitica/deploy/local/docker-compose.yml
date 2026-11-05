@@ -1,0 +1,75 @@
+# Mini PC del local: Frigate + Mosquitto + conector.
+#
+#   cd deploy/local
+#   cp .env.ejemplo .env                       # completar; .env nunca va al repo
+#   cp ../../config/conector.ejemplo.json conector/conector.json   # completar
+#   docker compose up -d --build
+#
+# Guía completa: docs/instalacion-local.md
+#
+# Frigate corre en Python dentro de su contenedor: usarlo requiere la excepción
+# aprobada por el Owner (preparativos.md, punto 2).
+
+name: bravo-video-local
+
+services:
+  mosquitto:
+    image: eclipse-mosquitto:2.0.18
+    restart: unless-stopped
+    volumes:
+      - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+    # Sin puertos publicados: solo lo ven Frigate y el conector, dentro de la red de Docker.
+    networks: [interna]
+
+  frigate:
+    image: ghcr.io/blakeblackshear/frigate:0.17.1
+    restart: unless-stopped
+    depends_on: [mosquitto]
+    shm_size: "512mb"
+    devices:
+      # GPU integrada del Intel N100 / Core i5: decodificación de video y OpenVINO.
+      - /dev/dri/renderD128:/dev/dri/renderD128
+    volumes:
+      - ./frigate/config.yml:/config/config.yml
+      - frigate-db:/config/db
+      - /var/lib/bravo-video/frigate:/media/frigate
+      - type: tmpfs
+        target: /tmp/cache
+        tmpfs:
+          size: 1000000000
+    environment:
+      # Frigate reemplaza {FRIGATE_*} en las rutas RTSP de config.yml.
+      FRIGATE_RTSP_USUARIO: ${FRIGATE_RTSP_USUARIO:?falta FRIGATE_RTSP_USUARIO en .env}
+      FRIGATE_RTSP_CLAVE: ${FRIGATE_RTSP_CLAVE:?falta FRIGATE_RTSP_CLAVE en .env}
+      FRIGATE_IP_INGRESO: ${FRIGATE_IP_INGRESO:?falta FRIGATE_IP_INGRESO en .env}
+      FRIGATE_IP_EGRESO: ${FRIGATE_IP_EGRESO:?falta FRIGATE_IP_EGRESO en .env}
+      TZ: ${TZ:-America/Argentina/Buenos_Aires}
+    ports:
+      # Interfaz web con usuario y contraseña, para calibrar zonas. Solo en la red del local.
+      - "8971:8971"
+    networks: [interna]
+
+  conector:
+    build:
+      context: ../..
+      dockerfile: deploy/Dockerfile.conector
+    image: bravo-video-conector:local
+    restart: unless-stopped
+    depends_on: [mosquitto]
+    volumes:
+      - ./conector/conector.json:/etc/bravo-video/conector.json:ro
+      - cola:/var/lib/bravo-video/cola
+    environment:
+      VIDEO_CONECTOR_TOKEN: ${VIDEO_CONECTOR_TOKEN:?falta VIDEO_CONECTOR_TOKEN en .env}
+      TZ: ${TZ:-America/Argentina/Buenos_Aires}
+    ports:
+      # Las cámaras ANPR y el sensor de conteo le mandan por HTTP. Solo red del local.
+      - "8080:8080"
+    networks: [interna]
+
+volumes:
+  cola:
+  frigate-db:
+
+networks:
+  interna:

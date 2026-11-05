@@ -74,6 +74,11 @@ bravo-video evaluar --etiquetas etiquetas.csv --lecturas lecturas.csv --informe 
 
 `scripts/prueba-punta-a-punta.sh` levanta Mosquitto, la ingesta y el conector en 127.0.0.1, simula dos tandas con un corte de la ingesta entre ellas, y verifica que llegue todo, sin duplicados ni patentes en los logs.
 
+## Instalación
+
+- Local (mini PC): `deploy/local/` + [`docs/instalacion-local.md`](docs/instalacion-local.md)
+- Servidor: `deploy/servidor/` + [`docs/instalacion-servidor.md`](docs/instalacion-servidor.md)
+
 ## Reglas que no hay que romper
 
 - **El id de un evento es determinístico** (`IdEvento.Derivar`). Hay una prueba con un valor fijado: si falla, no se "arregla" el valor esperado, porque cambiarlo hace que un reenvío duplique eventos en la ingesta.

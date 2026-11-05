@@ -1,0 +1,10 @@
+**/bin/
+**/obj/
+**/.vs/
+tests/
+deploy/
+docs/
+scripts/
+capturas/
+**/*.db
+**/.env

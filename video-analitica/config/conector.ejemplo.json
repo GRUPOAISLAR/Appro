@@ -8,16 +8,21 @@
   "pais": "AR",
   "zonaHoraria": "America/Argentina/Buenos_Aires",
   "urlIngesta": "https://video-ingesta.ejemplo.invalid/",
-  "directorioCola": "/var/lib/bravo-video/cola",
+  "directorioCola": "/var/lib/bravo-video/cola", // ruta dentro del contenedor (volumen "cola")
   "maximoCola": 200000,
   // Minutos sin mensajes de una cámara ANPR o sensor para informarla como "desconocido".
   "ventanaActividadMinutos": 60,
   // Sacar este bloque si no se usa Frigate.
   "mqtt": { "host": "mosquitto", "puerto": 1883, "versionFrigate": "0.17.1" },
   "camaras": [
-    // Frigate: una cámara que ve ingreso y egreso, separados por zonas dibujadas en Frigate.
-    { "camara": "porton", "motor": "frigate", "rol": "PorZona", "zonaIngreso": "entrada", "zonaEgreso": "salida" },
-    // Cámara ANPR que envía por HTTP a http://<mini PC>:8080/anpr/anpr-ingreso
+    // Frigate: mismos nombres que en deploy/local/frigate/config.yml. Solo cuenta lo
+    // que pasa por la zona "carril", así un auto estacionado a la vista no suma.
+    { "camara": "ingreso", "motor": "frigate", "rol": "Ingreso", "zonaRequerida": "carril" },
+    { "camara": "egreso", "motor": "frigate", "rol": "Egreso", "zonaRequerida": "carril" },
+    // Otra variante: una sola cámara que ve las dos manos, separadas por zonas.
+    // { "camara": "porton", "motor": "frigate", "rol": "PorZona", "zonaIngreso": "entrada", "zonaEgreso": "salida" },
+    // Cámaras ANPR dedicadas, si se instalan. Pueden convivir con Frigate para
+    // comparar los dos motores con datos (Etapa 9). Envían a http://<mini PC>:8080/anpr/<camara>
     { "camara": "anpr-ingreso", "motor": "hikvision-anpr", "rol": "Ingreso", "ip": "192.0.2.20", "firmware": "V5.7.0" },
     { "camara": "anpr-egreso", "motor": "hikvision-anpr", "rol": "Egreso", "ip": "192.0.2.21", "firmware": "V5.7.0" }
   ],

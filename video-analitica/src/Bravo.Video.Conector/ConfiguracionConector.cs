@@ -137,6 +137,11 @@ public sealed record ConfiguracionConector
                     break;
             }
 
+            if (c.ZonaRequerida is not null && c.Motor != Motores.Frigate)
+            {
+                errores.Add($"Cámara '{c.Camara}': zonaRequerida solo aplica a Frigate (la cámara ANPR no informa zonas).");
+            }
+
             if (c.Motor == Motores.HikvisionAnpr)
             {
                 if (Origen(c.Ip, c.Firmware) is { } origen)
@@ -244,13 +249,14 @@ internal sealed record CamaraArchivo
     public string? ZonaEgreso { get; init; }
     public string? SentidoIngreso { get; init; }
     public string? SentidoEgreso { get; init; }
+    public string? ZonaRequerida { get; init; }
     public string? Ip { get; init; }
     public string? Firmware { get; init; }
 
     public ConfiguracionCamara AConfiguracion() => new()
     {
         Camara = Camara!, Rol = Rol, ZonaIngreso = ZonaIngreso, ZonaEgreso = ZonaEgreso,
-        SentidoIngreso = SentidoIngreso, SentidoEgreso = SentidoEgreso,
+        SentidoIngreso = SentidoIngreso, SentidoEgreso = SentidoEgreso, ZonaRequerida = ZonaRequerida,
     };
 }
 

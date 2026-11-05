@@ -13,7 +13,8 @@ public class EjemploPruebas
 
         var config = ConfiguracionConector.Armar(archivo, Ayudas.Entorno());
 
-        Assert.Equal(3, config.Sede.Camaras.Count);
+        Assert.Equal(4, config.Sede.Camaras.Count);
+        Assert.Equal("carril", config.Sede.Camaras["ingreso"].ZonaRequerida);
         Assert.Equal(2, config.CamarasHttp.Count);
         Assert.Single(config.Sensores);
         Assert.NotNull(config.Mqtt);

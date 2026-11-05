@@ -25,6 +25,11 @@ public static class ArmadorEventos
             return ResultadoArmado.Descartado("Cámara sin configurar.");
         }
 
+        if (camara.ZonaRequerida is { } zona && !Contiene(lectura.Zonas, zona))
+        {
+            return ResultadoArmado.Descartado("No pasó por la zona requerida de la cámara.");
+        }
+
         if (Clasificar(lectura, camara) is not { } esIngreso)
         {
             return ResultadoArmado.Descartado(camara.Rol == RolCamara.PorZona

@@ -1,0 +1,49 @@
+# Servidor en la infraestructura de BraVo: ingesta (+ SQL Server opcional).
+#
+#   cd deploy/servidor
+#   cp .env.ejemplo .env            # completar; .env nunca va al repo
+#   docker compose build
+#   docker compose run --rm ingesta migrar
+#   docker compose run --rm ingesta equipo-alta --dispositivo minipc-01 --sede AR-PRUEBA-01
+#   docker compose up -d
+#
+# Con el SQL Server de la compañía alcanza con el servicio "ingesta". El perfil
+# "sqlserver-local" levanta un SQL Server propio, solo para probar sin depender
+# de infraestructura:   docker compose --profile sqlserver-local up -d
+#
+# TLS: la ingesta escucha HTTP en 127.0.0.1:8080. El subdominio con certificado
+# lo pone el proxy que ya use infraestructura (nginx, IIS, Traefik) adelante.
+# Guía completa: docs/instalacion-servidor.md
+
+name: bravo-video-servidor
+
+services:
+  ingesta:
+    build:
+      context: ../..
+      dockerfile: deploy/Dockerfile.ingesta
+    image: bravo-video-ingesta:local
+    restart: unless-stopped
+    environment:
+      VIDEO_DB_PROVEEDOR: ${VIDEO_DB_PROVEEDOR:-SqlServer}
+      VIDEO_DB_CONEXION: ${VIDEO_DB_CONEXION:?falta VIDEO_DB_CONEXION en .env}
+      VIDEO_CLAVE_HASH_PATENTE: ${VIDEO_CLAVE_HASH_PATENTE:?falta VIDEO_CLAVE_HASH_PATENTE en .env}
+      VIDEO_RETENCION_PATENTE_DIAS: ${VIDEO_RETENCION_PATENTE_DIAS:?falta VIDEO_RETENCION_PATENTE_DIAS en .env (lo define el Owner)}
+    ports:
+      - "127.0.0.1:8080:8080"
+
+  sqlserver:
+    profiles: [sqlserver-local]
+    image: mcr.microsoft.com/mssql/server:2022-CU27-ubuntu-22.04
+    restart: unless-stopped
+    environment:
+      ACCEPT_EULA: "Y"
+      # Express es gratuita también en producción; Developer no se puede usar con datos de un cliente.
+      MSSQL_PID: Express
+      # Opcional en el compose para no exigirla sin este perfil; SQL Server no arranca sin ella.
+      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD:-}
+    volumes:
+      - sqlserver:/var/opt/mssql
+
+volumes:
+  sqlserver:

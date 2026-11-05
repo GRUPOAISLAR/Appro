@@ -68,6 +68,13 @@ public sealed record ConfiguracionCamara
     public string? ZonaEgreso { get; init; }
     public string? SentidoIngreso { get; init; }
     public string? SentidoEgreso { get; init; }
+
+    /// <summary>
+    /// Zona de Frigate por la que tiene que haber pasado el objeto para contar,
+    /// con cualquier rol. Sirve para que un auto estacionado a la vista de la
+    /// cámara no se cuente como ingreso: solo cuenta lo que cruza el carril.
+    /// </summary>
+    public string? ZonaRequerida { get; init; }
 }
 
 public sealed record ConfiguracionSede

@@ -100,12 +100,21 @@ Hecho en `src/Bravo.Video.Simulacion`, `src/Bravo.Video.Evaluacion` y la línea 
 - **El informe no lleva patentes,** solo cantidades y confusiones de carácter.
 - **Formatos de planilla:** `etiquetas.csv` (`eventId,ts,patenteReal,periodo`, con `?` para ilegible y `-` para "no había vehículo") y `lecturas.csv`. Con datos reales son archivos privados.
 
-## Etapa 6 — Instalación
+## Etapa 6 — Instalación · HECHA (falta validar Frigate en el equipo real)
 
 - `docker-compose` del local: Frigate 0.17.1 + Mosquitto 2.0.18 + conector.
 - `docker-compose` del servidor: ingesta + SQL Server (o conexión al SQL Server existente).
 - Plantilla de configuración de Frigate: lectura de patentes encendida; reconocimiento facial, IA generativa y envíos externos apagados.
 - Guía de instalación paso a paso para el mini PC con Ubuntu 24.04.
+
+Hecho en `deploy/` y `docs/instalacion-local.md` / `docs/instalacion-servidor.md`. Imágenes fijadas y verificadas en sus registros: `frigate:0.17.1`, `eclipse-mosquitto:2.0.18`, `dotnet/aspnet:10.0.14-noble`, `dotnet/sdk:10.0.403-noble` (trae el runtime 10.0.14) y `mssql/server:2022-CU27-ubuntu-22.04` (Express, solo para probar sin el SQL Server de la compañía).
+
+- **Verificado:** los dos `docker-compose` pasan `docker compose config`, y si falta una variable obligatoria el error dice cuál. La publicación de los dos servicios funciona con solo lo que entra al contexto de Docker.
+- **No verificado:** las imágenes no se pudieron construir porque este entorno no tiene daemon de Docker. Tampoco la plantilla de Frigate, que está escrita desde su documentación y se valida al arrancar en el mini PC (paso descrito en la guía).
+- **Nueva opción `zonaRequerida` en el conector:** con cámaras de rol fijo, solo cuenta lo que pasa por la zona `carril` de Frigate. Un auto estacionado a la vista no suma.
+- **Sin valor por defecto:** `record.retain.days` dice `PENDIENTE_OWNER` y Frigate no arranca hasta que se complete, igual que la ingesta sin plazo de retención.
+- **Apagado en Frigate:** reconocimiento facial, búsqueda semántica, IA generativa, snapshots y chequeo de versión.
+- **Puertos:** Mosquitto queda sin puerto publicado. La ingesta escucha solo en 127.0.0.1 y el TLS lo pone el proxy de infraestructura.
 
 ## Etapa 7 — Verificación
 
@@ -136,6 +145,7 @@ Hecho en `src/Bravo.Video.Simulacion`, `src/Bravo.Video.Evaluacion` y la línea 
 | 3 | Ninguno (hecha) | — |
 | 4 | Decisión del Owner sobre patentes en tablero y exportación | Matías (en el PR #1) |
 | 5 | Ninguno (hecha) | — |
-| 6 y 7 | Ninguno para el código; la instalación real espera la aprobación de Python | — |
+| 6 | Hecha en código; instalar espera la aprobación de Python y el plazo de los recortes | Owner |
+| 7 | Ninguno | — |
 | 8 | Repo definitivo de GitHub (hoy vive en `GRUPOAISLAR/Appro`) | Gastón (crear repo y pasarme el nombre) |
 | 9 | Aprobación de Python, legal, hardware, servidor | Owner, empresa e infraestructura |

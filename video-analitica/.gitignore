@@ -9,3 +9,7 @@ capturas/
 *.png
 !docs/**/*.png
 .env
+# Configuración real de cada instalación.
+deploy/local/conector/conector.json
+deploy/servidor/.env
+deploy/local/.env

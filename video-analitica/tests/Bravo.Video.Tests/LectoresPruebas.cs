@@ -249,6 +249,18 @@ public class LectoresPruebas
     }
 
     [Fact]
+    public void Armador_zona_requerida_descarta_lo_que_no_cruza_el_carril()
+    {
+        var sede = Sede(new ConfiguracionCamara { Camara = "porton", Rol = RolCamara.Ingreso, ZonaRequerida = "carril" });
+
+        Assert.IsType<VehiculoIngreso>(ArmadorEventos.Vehiculo(Lectura("porton", ["Carril"]), sede).Evento);
+
+        var estacionado = ArmadorEventos.Vehiculo(Lectura("porton", ["playa"]), sede);
+        Assert.Null(estacionado.Evento);
+        Assert.Equal("No pasó por la zona requerida de la cámara.", estacionado.MotivoDescarte);
+    }
+
+    [Fact]
     public void Armador_por_sentido_y_camara_desconocida()
     {
         var sede = Sede(new ConfiguracionCamara

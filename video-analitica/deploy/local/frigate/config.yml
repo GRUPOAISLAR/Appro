@@ -1,0 +1,112 @@
+# Frigate 0.17.1 — plantilla para el local de la prueba.
+#
+# ANTES DE ARRANCAR hay que completar tres cosas marcadas con PENDIENTE:
+#   1. record.retain.days: lo define el Owner (plazo de los recortes en el local).
+#      Mientras diga PENDIENTE_OWNER, Frigate no arranca, a propósito.
+#   2. Las zonas "carril" de cada cámara: se dibujan en la interfaz de Frigate
+#      el día de la instalación (Etapa 9, calibración) y se pegan acá.
+#   3. Las rutas RTSP si las cámaras no son Hikvision (cambia /Streaming/Channels/...).
+#
+# Escrita a partir de la documentación de Frigate 0.16/0.17 sin poder validarla
+# en este entorno: Frigate valida el archivo al arrancar y dice qué campo falla.
+# Ver docs/instalacion-local.md, paso "Validar la configuración de Frigate".
+#
+# Qué está apagado a propósito (y no se prende sin decisión del Owner):
+#   - reconocimiento facial, búsqueda semántica e IA generativa;
+#   - snapshots (fotos de cada evento): no se guardan imágenes fuera de la grabación;
+#   - chequeo de versión contra internet.
+
+mqtt:
+  enabled: true
+  host: mosquitto
+  port: 1883
+  topic_prefix: frigate
+  client_id: frigate
+
+telemetry:
+  version_check: false
+
+detectors:
+  ov:
+    type: openvino
+    device: GPU
+
+# Modelo incluido en la imagen de Frigate para OpenVINO.
+model:
+  width: 300
+  height: 300
+  input_tensor: nhwc
+  input_pixel_format: bgr
+  path: /openvino-model/ssdlite_mobilenet_v2.xml
+  labelmap_path: /openvino-model/coco_91cl_bkgr.txt
+
+ffmpeg:
+  hwaccel_args: preset-vaapi
+
+# Lectura de patentes integrada de Frigate.
+lpr:
+  enabled: true
+  device: GPU
+  model_size: small
+  # Confianza mínima para publicar la patente (0.9 es el valor por defecto de Frigate).
+  recognition_threshold: 0.9
+  # Las patentes de Argentina tienen 6 o 7 caracteres. El formato lo valida el conector, no Frigate,
+  # para poder medir también las lecturas que no encajan.
+  min_plate_length: 6
+
+face_recognition:
+  enabled: false
+
+semantic_search:
+  enabled: false
+
+genai:
+  enabled: false
+
+birdseye:
+  enabled: false
+
+snapshots:
+  enabled: false
+
+record:
+  enabled: true
+  retain:
+    # PENDIENTE: plazo de los recortes en el local, lo define el Owner.
+    days: PENDIENTE_OWNER
+    mode: motion
+
+objects:
+  track: [car, motorcycle, truck, bus]
+
+cameras:
+  ingreso:
+    ffmpeg:
+      inputs:
+        # Flujo principal: resolución completa para leer patentes.
+        - path: rtsp://{FRIGATE_RTSP_USUARIO}:{FRIGATE_RTSP_CLAVE}@{FRIGATE_IP_INGRESO}:554/Streaming/Channels/101
+          roles: [detect, record]
+    detect:
+      # La lectura de patentes necesita el flujo principal; 5 cuadros por segundo alcanzan
+      # si el auto frena en la barrera. Se ajusta en la calibración.
+      fps: 5
+    zones:
+      carril:
+        # PENDIENTE: dibujar en la interfaz el día de la instalación.
+        coordinates: 0.30,0.40,0.70,0.40,0.70,0.95,0.30,0.95
+        objects: [car, motorcycle, truck, bus]
+
+  egreso:
+    ffmpeg:
+      inputs:
+        - path: rtsp://{FRIGATE_RTSP_USUARIO}:{FRIGATE_RTSP_CLAVE}@{FRIGATE_IP_EGRESO}:554/Streaming/Channels/101
+          roles: [detect, record]
+    detect:
+      fps: 5
+    zones:
+      carril:
+        # PENDIENTE: dibujar en la interfaz el día de la instalación.
+        coordinates: 0.30,0.40,0.70,0.40,0.70,0.95,0.30,0.95
+        objects: [car, motorcycle, truck, bus]
+
+version: 0.17-0
